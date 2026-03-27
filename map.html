@@ -1,0 +1,1200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Campus Map | Dashboard</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@500;600;700&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+     integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+     crossorigin=""/>
+
+    <style>
+        /* --- VARIABLES & RESET --- */
+        :root {
+            --primary-dark: #0f172a;
+            --primary-blue: #1e3a8a;
+            --accent-glow: #38bdf8;
+            --accent-secondary: #818cf8;
+            --text-main: #334155;
+            --text-muted: #64748b;
+            --bg-body: #f1f5f9;
+            --bg-white: #ffffff;
+            --border-light: #e2e8f0;
+            --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+            --transition: all 0.3s ease;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-body);
+            color: var(--text-main);
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* --- NAVBAR --- */
+        header {
+            background-color: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--border-light);
+            height: 70px;
+            flex-shrink: 0;
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            padding: 0 2rem;
+            justify-content: space-between;
+        }
+
+        .logo {
+            font-family: 'Poppins', sans-serif;
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: var(--primary-dark);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .logo span { color: var(--primary-blue); }
+
+        .nav-links {
+            display: flex;
+            gap: 2rem;
+            list-style: none;
+        }
+
+        .nav-links a {
+            text-decoration: none;
+            color: var(--text-main);
+            font-weight: 500;
+            font-size: 0.95rem;
+            transition: var(--transition);
+        }
+
+        .nav-links a:hover, .nav-links a.active {
+            color: var(--primary-blue);
+        }
+
+        /* --- DASHBOARD LAYOUT --- */
+        .dashboard-container {
+            display: flex;
+            flex: 1;
+            height: calc(100vh - 70px);
+            position: relative;
+        }
+
+        /* --- SIDEBAR --- */
+        .sidebar {
+            width: 350px;
+            background: var(--bg-white);
+            border-right: 1px solid var(--border-light);
+            display: flex;
+            flex-direction: column;
+            z-index: 500;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .sidebar-header {
+            padding: 1.5rem;
+            border-bottom: 1px solid var(--border-light);
+        }
+
+       .search-container {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 12px 15px 12px 42px; /* left padding for icon */
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            background: #f8fafc;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.95rem;
+            outline: none;
+            transition: var(--transition);
+        }
+
+        .search-input:focus {
+            border-color: var(--primary-blue);
+            box-shadow: 0 0 0 3px rgba(30, 58, 138, 0.1);
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 14px;
+            top: 14px;
+            width: 18px;
+            height: 18px;
+            color: var(--text-muted);
+            pointer-events: none;
+        } 
+
+        .sidebar {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .building-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 0.8rem;
+        }
+
+        .building-item {
+            display: flex;
+            align-items: center;
+            padding: 12px 15px;
+            margin-bottom: 8px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: var(--transition);
+            border: 1px solid transparent;
+        }
+
+        .building-item:hover {
+            background-color: #f0f9ff;
+            border-color: #bae6fd;
+        }
+
+        .building-item.active {
+            background-color: var(--primary-blue);
+            color: white;
+            box-shadow: 0 4px 12px rgba(30, 58, 138, 0.2);
+        }
+
+        .building-item.active .building-icon {
+            background: rgba(255,255,255,0.2);
+            color: white;
+        }
+        
+        .building-item.active small { color: rgba(255,255,255,0.8); }
+
+        .building-icon {
+            width: 40px; height: 40px;
+            background: #f1f5f9;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 15px;
+            color: var(--text-muted);
+            font-size: 1.2rem;
+            transition: var(--transition);
+        }
+
+        .building-info h4 {
+            font-size: 0.95rem; font-weight: 600; margin-bottom: 2px;
+        }
+
+        .building-info small {
+            font-size: 0.8rem; color: var(--text-muted);
+        }
+
+        .sidebar-footer {
+            padding: 1.5rem;
+            border-top: 1px solid var(--border-light);
+            background: var(--bg-white);
+        }
+
+        .btn-route {
+            width: 100%;
+            padding: 12px;
+            background: var(--primary-blue);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+            font-family: 'Poppins', sans-serif;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .btn-route:hover {
+            background: #172554;
+            transform: translateY(-2px);
+        }
+
+        /* --- MAP AREA --- */
+        .map-wrapper {
+            flex: 1;
+            position: relative;
+            background-color: #e5e7eb;
+            overflow: hidden;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+            background: #f0f0f0; /* Fallback color while image loads */
+        }
+
+        .btn-locate {
+            position: absolute;
+            bottom: 30px;
+            right: 30px;
+            width: 50px; height: 50px;
+            background: white;
+            border-radius: 50%;
+            border: none;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--primary-dark);
+            transition: var(--transition);
+            z-index: 1000;
+        }
+
+        .btn-locate:hover {
+            transform: scale(1.1);
+            color: var(--accent-glow);
+        }
+
+        @media (max-width: 768px) {
+            .navbar .nav-links { display: none; }
+            .dashboard-container { flex-direction: column; }
+            .sidebar {
+                width: 100%;
+                height: 40%;
+                border-right: none;
+                border-bottom: 1px solid var(--border-light);
+            }
+            .map-wrapper { height: 60%; }
+            .btn-locate { bottom: 20px; right: 20px; }
+        }
+
+        /* START MARKER STYLE */
+        .start-marker {
+            font-size: 28px;
+            background: white;
+            border-radius: 50%;
+            width: 38px;
+            height: 38px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 3px solid #22c55e;
+            box-shadow: 0 0 12px rgba(34,197,94,0.6);
+        }
+
+        /* END MARKER STYLE */
+        .end-marker {
+            font-size: 28px;
+            background: white;
+            border-radius: 50%;
+            width: 38px;
+            height: 38px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 3px solid #ef4444;
+            box-shadow: 0 0 12px rgba(239,68,68,0.6);
+}
+    </style>
+</head>
+<body>
+
+    <header>
+        <a href="index.html" class="logo">Smart<span>Campus</span></a>
+        <nav>
+            <ul class="nav-links">
+                <li><a href="index.html">Home</a></li>
+                <li><a href="#" class="active">Map</a></li>
+                <li><a href="#">About</a></li>
+                <li><a href="#">Profile</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main class="dashboard-container">
+        
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="search-container">
+                    <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                    </svg>
+
+                    <input type="text" class="search-input"
+                        id="buildingSearch"
+                        placeholder="Search buildings...">
+
+                    <!-- NEW CATEGORY FILTER -->
+                    <select id="categoryFilter"
+                        style="margin-top:10px; width:100%; padding:8px;
+                        border-radius:6px; border:1px solid #e2e8f0;">
+                        <option value="All">All Categories</option>
+                        <option value="Academic">Academic</option>
+                        <option value="Hostel">Hostel</option>
+                        <option value="Mess">Mess</option>
+                        <option value="Auditorium">Auditorium</option>
+                        <option value="Ground">Ground</option>
+                        <option value="Sports">Sports</option>
+                        <option value="Administration">Administration</option>
+                        <option value="Research">Research</option>
+                        <option value="Training">Training</option>
+                        <option value="Transport">Transport</option>
+                    </select>
+                </div>
+            </div>
+
+            <ul class="building-list" id="buildingList"></ul>
+
+            <div class="sidebar-footer">
+                <button class="btn-route">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polygon points="3 11 22 2 13 21 11 13 3 11"></polygon>
+                    </svg>
+                    Find Shortest Route
+                </button>
+            </div>
+        </aside>
+
+        <section class="map-wrapper">
+            <div id="map"></div>
+            
+            <button class="btn-locate" title="Reset View">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <circle cx="12" cy="12" r="3"></circle>
+                    <line x1="22" y1="12" x2="18" y2="12"></line>
+                    <line x1="6" y1="12" x2="2" y2="12"></line>
+                    <line x1="12" y1="6" x2="12" y2="2"></line>
+                    <line x1="12" y1="22" x2="12" y2="18"></line>
+                </svg>
+            </button>
+        </section>
+
+    </main>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+     integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+     crossorigin=""></script>
+
+    <!-- For curve nature from leaftlet, JS -->
+     <script src="https://unpkg.com/leaflet.curve/leaflet.curve.js"></script>
+
+
+    <script>
+        // --- CONFIGURATION ---
+        const imageUrl = 'Images/campus-map.png';
+        
+        let map;
+        let bounds;
+        const markers = {}; // Store marker instances
+        let currentRouteLine = null; // Store current route polyline
+        let currentGlowLine = null; 
+        let routeAnimation = null;
+
+        const listContainer = document.getElementById('buildingList');
+
+        // --- LOCATION DATA (Nodes) ---
+        // Coords: [Y, X] (Leaflet Simple CRS)
+        const locations = [
+        { id: 1, name: "PEC Entrance", coords: [780, 29], icon: "🚪", desc: "Main Campus Entrance", category: "Entrance" },
+
+        { id: 2, name: "PIT Play Ground", coords: [1456, 2350], icon: "⚽", desc: "Institute Sports Ground", category: "Ground" },
+
+        { id: 3, name: "Play Ground", coords: [1100, 2100], icon: "🏏", desc: "Main College Cricket Ground", category: "Ground" },
+
+        { id: 4, name: "PEC Mess-1", coords: [950, 1420], icon: "🍽️", desc: "Student Dining Hall", category: "Mess" },
+
+        { id: 5, name: "Boys Hostel-1", coords: [988, 1085], icon: "🏠", desc: "Boys Residential Hostel", category: "Hostel" },
+
+        { id: 6, name: "Girls Hostel-1", coords: [168, 1678], icon: "🏠", desc: "Girls Residential Hostel", category: "Hostel" },
+
+        { id: 7, name: "Administrator Block", coords: [789, 654], icon: "🏢", desc: "Administrative Office Block", category: "Administration" },
+
+        { id: 8, name: "PEC Auditorium", coords: [571, 1679], icon: "🎭", desc: "Main Events Auditorium", category: "Auditorium" },
+
+        { id: 9, name: "PIT Auditorium", coords: [921, 2180], icon: "🎤", desc: "Institute Auditorium Hall", category: "Auditorium" },
+
+        { id: 10, name: "PIT Mess", coords: [766, 2194], icon: "🍽️", desc: "Institute Dining Hall", category: "Mess" },
+
+        { id: 11, name: "Bus Depot", coords: [460, 2007], icon: "🚌", desc: "Campus Transport Center", category: "Transport" },
+
+        { id: 12, name: "AI & DS Block-1", coords: [418, 895], icon: "💻", desc: "Artificial Intelligence & Data Science Block 1", category: "Academic" },
+
+        { id: 13, name: "AI & DS Block-2", coords: [314, 1303], icon: "💻", desc: "Artificial Intelligence & Data Science Block 2", category: "Academic" },
+
+        { id: 14, name: "PEC Research Park", coords: [500, 1086], icon: "🔬", desc: "Research & Innovation Center", category: "Research" },
+
+        { id: 15, name: "CSE Block-1", coords: [817, 903], icon: "💻", desc: "Computer Science Engineering  Block 1", category: "Academic" },
+
+        { id: 16, name: "CSE Block-2", coords: [857, 1071], icon: "💻", desc: "Computer Science Engineering  Block 2", category: "Academic" },
+
+        { id: 17, name: "CSE Block-3", coords: [800, 1200], icon: "💻", desc: "Computer Science Engineering  Block 3", category: "Academic" },
+
+        { id: 18, name: "ECE Block-1", coords: [829, 1375], icon: "📡", desc: "Electronics & Communication Block 1", category: "Academic" },
+
+        { id: 19, name: "ECE Block-2", coords: [771, 1515], icon: "📡", desc: "Electronics & Communication Block 2", category: "Academic" },
+
+        { id: 20, name: "Exam Cell", coords: [400, 1345], icon: "📝", desc: "Examination Control Office", category: "Administration" },
+
+        { id: 21, name: "Girls Hostel-2", coords: [163, 2570], icon: "🏠", desc: "Girls Residential Hostel Block 2", category: "Hostel" },
+
+        { id: 22, name: "PEC Mess-3", coords: [498, 2096], icon: "🍽️", desc: "Additional Dining Facility", category: "Mess" },
+
+        { id: 23, name: "MBA Block", coords: [744, 2385], icon: "📊", desc: "Management Studies Block", category: "Academic" },
+
+        { id: 24, name: "Qspider Block", coords: [561, 2408], icon: "🏢", desc: "Training & Placement Training Center", category: "Training" },
+
+        { id: 25, name: "IT Block-1", coords: [1215, 2166], icon: "🖥️", desc: "Information Technology Block 1", category: "Academic" },
+
+        { id: 26, name: "IT Block-2", coords: [1194, 2424], icon: "🖥️", desc: "Information Technology Block 2", category: "Academic" },
+
+        { id: 27, name: "Boys Hostel-2", coords: [1321, 2467], icon: "🏠", desc: "Boys Residential Hostel Block 2", category: "Hostel" },
+
+        { id: 28, name: "Boys Hostel-3", coords: [1249, 2519], icon: "🏠", desc: "Boys Residential Hostel Block 3", category: "Hostel" },
+
+        { id: 29, name: "Mech Block", coords: [1335, 2355], icon: "⚙️", desc: "Mechanical Engineering Block", category: "Academic" },
+
+        { id: 30, name: "Humanities & Science Block", coords: [860, 2481], icon: "📚", desc: "Humanities and Science Department", category: "Academic" },
+
+        { id: 31, name: "Basket Ball Court", coords: [942, 1991], icon: "🏀", desc: "Basketball Practice Court", category: "Sports" },
+
+        { id: 32, name: "AI & ML Block", coords: [741, 2491], icon: "🤖", desc: "Artificial Intelligence & Machine Learning Block", category: "Academic" },
+
+        { id: 33, name: "Lab Block-1", coords: [505, 1023], icon: "🧪", desc: "Laboratory & Practical Sessions Block", category: "Academic" },
+
+        { id: 34, name: "Lab Block-2", coords: [489, 1301], icon: "🔬", desc: "Advanced Research & Lab Facilities", category: "Academic" },
+
+        { id: 35, name: "Lab Block-3", coords: [470, 1566], icon: "⚙️", desc: "Engineering & Technical Labs", category: "Academic" },
+
+        { id: 36, name: "Lab Block-4", coords: [1011, 1827], icon: "⚙️", desc: "Engineering & Technical Labs", category: "Academic" },
+
+        { id: 37, name: "Petrol Bunk", coords: [1341, 2192], icon: "⛽", desc: "Campus Fuel Station", category: "Transport" }
+        ];
+
+  
+       
+       // --- ROAD NODES (Manual Road Junctions) ---
+      const roadNodes = [ 
+
+        { id: "R1", coords: [764, 187] },
+        { id: "R2", coords: [727, 629] },
+        { id: "R3", coords: [675, 794] },
+        { id: "R4", coords: [956, 894] },
+        { id: "R5", coords: [935, 1075] },
+        { id: "R6", coords: [902, 1418] },
+        { id: "R7", coords: [893, 1638] },
+        { id: "R8", coords: [563, 1609] },
+        { id: "R9", coords: [320, 1593] },
+        { id: "R10", coords: [163, 1602] },
+        { id: "R11", coords: [319, 2087] },
+        { id: "R12", coords: [450, 2076] },
+        { id: "R13", coords: [862, 2045] },
+        { id: "R14", coords: [854, 2186] },
+        { id: "R15", coords: [1102, 2021] },
+        { id: "R16", coords: [1197, 2015] },
+        { id: "R17", coords: [1171, 2297] },
+        { id: "R18", coords: [1463, 2251] },
+        { id: "R19", coords: [1316, 2276] },
+        { id: "R20", coords: [1304, 2354] },
+        { id: "R21", coords: [1185, 2167] },
+        { id: "R22", coords: [1161, 2425] },
+        { id: "R23", coords: [1152, 2567] },
+        { id: "R24", coords: [1253, 2541] },
+        { id: "R25", coords: [1291, 2533] },
+        { id: "R26", coords: [1292, 2473] },
+        { id: "R27", coords: [1296, 2277] },
+        { id: "R28", coords: [1298, 2193] },
+        { id: "R29", coords: [1306, 2002] },
+        { id: "R30", coords: [1116, 1792] },
+        { id: "R31", coords: [1015, 1790] },
+        { id: "R32", coords: [1120, 1654] },
+        { id: "R33", coords: [941, 2039] },
+        { id: "R34", coords: [823, 2636] },
+        { id: "R35", coords: [834, 2485] },
+        { id: "R36", coords: [844, 2320] },
+        { id: "R37", coords: [741, 2334] },
+        { id: "R38", coords: [650, 2348] },
+        { id: "R39", coords: [562, 2361] },
+        { id: "R40", coords: [644, 2506] },
+        { id: "R41", coords: [292, 2402] },
+        { id: "R42", coords: [406, 1599] },
+        { id: "R43", coords: [488, 1603] },
+        { id: "R44", coords: [419, 1319] },
+        { id: "R45", coords: [439, 1039] },
+        { id: "R46", coords: [447, 898] },
+        { id: "R47", coords: [456, 743] },
+        { id: "R48", coords: [227, 685] },
+        { id: "R49", coords: [210, 1146] },
+        { id: "R50", coords: [228, 1444] },
+        { id: "R51", coords: [505, 1324] },
+        { id: "R52", coords: [511, 1054] },
+        { id: "R53", coords: [571, 1062] },
+        { id: "R54", coords: [680, 1081] },
+        { id: "R55", coords: [683, 1032] },
+        { id: "R56", coords: [815, 1062] },
+        { id: "R57", coords: [675, 904] },
+        { id: "R58", coords: [817, 941] },
+        { id: "R59", coords: [947, 976] },
+        { id: "R60", coords: [676, 1144] },
+        { id: "R61", coords: [802, 1169] },
+        { id: "R62", coords: [923, 1194] },
+        { id: "R63", coords: [913, 1280] },
+        { id: "R64", coords: [672, 1248] },
+        { id: "R65", coords: [666, 1347] },
+        { id: "R66", coords: [800, 1370] },
+        { id: "R67", coords: [656,1472] },
+        { id: "R68", coords: [774, 1489] },
+        { id: "R69", coords: [898, 1505] },
+        { id: "R70", coords: [227, 2414] },
+        { id: "R71", coords: [216, 2563] },
+        { id: "R72", coords: [205, 2772] },
+        { id: "R73", coords: [641, 1616] },
+        { id: "R74", coords: [343, 1303] },
+        { id: "R75", coords: [500,2071] }
+            
+      ];
+
+
+        // --- GRAPH & ROUTING LOGIC ---
+        
+        // 1. Graph Structure (Adjacency List)
+        let campusGraph = {};
+
+        // Helper: Calculate Euclidean Distance for CRS.Simple
+        function getDistance(coord1, coord2) {
+            const dy = coord1[0] - coord2[0];
+            const dx = coord1[1] - coord2[1];
+            return Math.sqrt(dx * dx + dy * dy);
+        }
+
+        // 2.  Graph 
+        // Note: In a real app, you would hardcode road connections here.
+        function getCoords(id) {
+            let building = locations.find(l => l.id === id);
+            if (building) return building.coords;
+
+            let road = roadNodes.find(r => r.id === id);
+            if (road) return road.coords;
+
+            return null;
+        }
+
+        function connect(a, b) {
+            const coordA = getCoords(a);
+            const coordB = getCoords(b);
+
+            const dist = getDistance(coordA, coordB);
+
+            campusGraph[a][b] = dist;
+            campusGraph[b][a] = dist;
+        }
+
+        function buildGraphManual() {
+
+            // Initialize graph
+            locations.forEach(loc => campusGraph[loc.id] = {});
+            roadNodes.forEach(node => campusGraph[node.id] = {});
+
+            // --- Road Connections ---
+            connect("R1", "R2");
+            connect("R2", "R3");
+            connect("R3", "R4");
+            connect("R4", "R59");
+            connect("R59", "R5");
+            connect("R5", "R62");
+            connect("R62", "R63");
+            connect("R63", "R6");
+            connect("R6", "R69");
+            connect("R69", "R7");
+            connect("R7", "R73");
+            connect("R73", "R8");
+            connect("R8", "R43");
+            connect("R43", "R42");
+            connect("R42", "R9");
+            connect("R9", "R50");
+            connect("R50", "R49");
+            connect("R49", "R48");
+            connect("R48", "R47");
+            connect("R47", "R46");
+            connect("R46", "R45");
+            connect("R45", "R44");
+            connect("R44", "R74");
+            connect("R74", "R9");
+            connect("R73", "R67");
+            connect("R67", "R65");
+            connect("R65", "R64");
+            connect("R9", "R10");
+            connect("R9", "R11");
+            connect("R64", "R60");
+            connect("R60", "R54");
+            connect("R54", "R55");
+            connect("R55", "R57");
+            connect("R57", "R3");
+            connect("R57", "R58");
+            connect("R58", "R59");
+            connect("R55", "R56");
+            connect("R60", "R61");
+            connect("R61", "R62");
+            connect("R64", "R63");
+            connect("R65", "R66");
+            connect("R67", "R68");
+            connect("R68", "R69");
+            connect("R11", "R12");
+            connect("R12", "R75");
+            connect("R75", "R13");
+            connect("R13", "R33");
+            connect("R33", "R15");
+            connect("R15", "R30");
+            connect("R30", "R32");
+            connect("R32", "R7");
+            connect("R7", "R13");
+            connect("R11", "R41");
+            connect("R41", "R70");
+            connect("R70", "R71");
+            connect("R71", "R72");
+            connect("R72", "R34");
+            connect("R34", "R35");
+            connect("R35", "R36");
+            connect("R36", "R14");
+            connect("R14", "R13");
+            connect("R36", "R37");
+            connect("R37", "R38");
+            connect("R38", "R40");
+            connect("R38", "R39");
+            connect("R39", "R41");
+            connect("R34", "R23");
+            connect("R23", "R22");
+            connect("R22", "R17");
+            connect("R17", "R21");
+            connect("R21", "R16");
+            connect("R16", "R15");
+            connect("R16", "R29");
+            connect("R29", "R28");
+            connect("R28", "R27");
+            connect("R27", "R17");
+            connect("R23", "R24");
+            connect("R24", "R25");
+            connect("R25", "R26");
+            connect("R27", "R19");
+            connect("R19", "R18");
+            connect("R19", "R20");
+            connect("R44", "R51");
+            connect("R45", "R52");
+            connect("R52", "R53");
+            connect("R54", "R53");
+            connect("R65", "R51");
+            connect("R3", "R47");
+            connect("R31","R30"); 
+            connect("R44","R42"); 
+
+            // --- Buildings to Road ---
+            connect(1, "R1");
+            connect(2, "R18");
+            connect(3, "R15");
+            connect(4, "R6");
+            connect(5, "R5");
+            connect(6, "R10");
+            connect(7, "R2");
+            connect(8, "R8");
+            connect(9, "R14");
+            connect(10, "R14");
+            connect(11, "R12");
+            connect(12,"R46");
+            connect(13, "R74");
+            connect(14, "R52");
+            connect(15, "R58");
+            connect(16, "R56");
+            connect(17, "R61");
+            connect(18, "R66");
+            connect(19, "R68");
+            connect(20, "R44");
+            connect(21, "R71");
+            connect(22, "R75");
+            connect(23, "R37");
+            connect(24, "R39");
+            connect(25, "R21");
+            connect(26, "R22");
+            connect(27, "R26");
+            connect(28, "R24");
+            connect(29, "R20");
+            connect(30, "R35");
+            connect(31, "R33");
+            connect(32, "R40");
+            connect(33, "R52");
+            connect(34, "R51");
+            connect(35, "R43");
+            connect(36, "R31");
+            connect(37, "R28");
+
+        }
+
+     // Draw Road Network Permanentlly
+            function drawRoadNetwork() {
+
+                roadNodes.forEach(node => {
+                    const neighbors = campusGraph[node.id];
+
+                    for (let neighborId in neighbors) {
+
+                        // Only draw road-to-road connections
+                        if (typeof neighborId === "string" && neighborId.startsWith("R")) {
+
+                            const from = getCoords(node.id);
+                            const to = getCoords(neighborId);
+
+                            L.polyline([from, to], {
+                                color: '#9ca3af',   // light grey road
+                                weight: 4,
+                                opacity: 0.6
+                            }).addTo(map);
+                        }
+                    }
+                });
+            }
+
+
+        // 3. Dijkstra's Algorithm
+        function findShortestPath(startId, endId) {
+            let distances = {};
+            let prev = {};
+
+        let allNodes = [
+            ...locations.map(l => l.id),
+            ...roadNodes.map(r => r.id)
+        ];
+
+        let pq = new Set(allNodes);
+
+            // Initialize
+           allNodes.forEach(id => distances[id] = Infinity);
+            distances[startId] = 0;
+
+            while (pq.size > 0) {
+                // Find node with min distance in PQ
+                let minNode = null;
+                for (let node of pq) {
+                    if (minNode === null || distances[node] < distances[minNode]) {
+                        minNode = node;
+                    }
+                }
+
+                if (minNode === endId) break; // Reached destination
+                if (distances[minNode] === Infinity) break; // No path
+
+                pq.delete(minNode);
+
+                // Update neighbors
+                let neighbors = campusGraph[minNode];
+                for (let neighborId in neighbors) {
+                    let alt = distances[minNode] + neighbors[neighborId];
+                    if (alt < distances[neighborId]) {
+                        distances[neighborId] = alt;
+                        prev[neighborId] = minNode;
+                    }
+                }
+            }
+
+            // Reconstruct Path
+            let path = [];
+            let u = endId;
+            if (prev[u] || u === startId) {
+                    while (u !== undefined) {
+                        path.unshift(u);   // NO parseInt
+                        u = prev[u];
+                    }
+            }
+            return path;
+        }
+
+        // --- INITIALIZATION ---
+        const img = new Image();
+        img.src = imageUrl;
+
+        img.onerror = function() {
+            alert("Error: Could not load 'images/campus-map.png'. Please ensure the file exists.");
+        };
+
+        img.onload = function () {
+            // 1. Init Map
+            const w = this.width;
+            const h = this.height;
+
+            map = L.map('map', {
+                crs: L.CRS.Simple,
+                minZoom: -5,
+                maxZoom: 5,
+                zoomSnap: 0.25,
+                zoomDelta: 0.25,
+                wheelPxPerZoomLevel: 120
+            });
+
+            bounds = [[0, 0], [h, w]];
+            L.imageOverlay(imageUrl, bounds).addTo(map);
+            map.fitBounds(bounds);
+            map.setMaxBounds(bounds);
+
+            // 2. Build Data
+            buildGraphManual(); // Build the connectivity graph
+            drawRoadNetwork(); 
+            initMarkers(); // Place markers
+            initRoutingUI(); // Inject Routing Controls
+
+            // ---- DEBUG: Click to get coordinates ----
+            map.on('click', function(e) {
+                const y = Math.round(e.latlng.lat);
+                const x = Math.round(e.latlng.lng);
+
+                console.log(`Clicked at: [${y}, ${x}]`);
+            });
+
+        };
+
+        // --- MARKERS & ICONS ---
+        // Custom Icons
+        const iconBlue = L.icon({
+            iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-blue.png',
+            shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+            iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41]
+        });
+
+        const iconGreen = L.icon({
+            iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-green.png',
+            shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+            iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41]
+        });
+
+        const iconRed = L.icon({
+            iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
+            shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+            iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41]
+        });
+
+        const iconPurple = L.icon({
+            iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-violet.png',
+            shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+            iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41]
+        });
+
+        const iconOrange = L.icon({
+            iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-orange.png',
+            shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+            iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41]
+        });
+
+        const iconDarkBlue = L.icon({
+            iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-blue.png',
+            shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+            iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41]
+        });
+
+        const iconStart = L.divIcon({
+            className: 'start-marker',
+            html: '🟢',
+            iconSize: [38, 38],
+            iconAnchor: [19, 19]
+        });
+
+        const iconEnd = L.divIcon({
+            className: 'end-marker',
+            html: '🚩',
+            iconSize: [38, 38],
+            iconAnchor: [19, 19]
+        });
+
+        function initMarkers() {
+            locations.forEach(loc => {
+                // Marker
+               let markerIcon = iconBlue; // default
+
+                if (loc.category === "Hostel") markerIcon = iconPurple;
+                else if (loc.category === "Mess") markerIcon = iconOrange;
+                else if (loc.category === "Auditorium") markerIcon = iconRed;
+                else if (loc.category === "Ground" || loc.category === "Sports") markerIcon = iconGreen;
+                else if (loc.category === "Administration") markerIcon = iconDarkBlue;
+
+                const marker = L.marker(loc.coords, { icon: markerIcon }).addTo(map);
+
+                marker.bindPopup(`<b>${loc.name}</b><br>Category: ${loc.category}`);
+                markers[loc.id] = marker;
+
+                // Sidebar Item
+                const li = document.createElement('li');
+                li.className = 'building-item';
+                li.innerHTML = `
+                    <div class="building-icon">${loc.icon}</div>
+                    <div class="building-info">
+                        <h4>${loc.name}</h4>
+                        <small>${loc.desc}</small>
+                    </div>
+                `;
+                li.addEventListener('click', () => selectLocation(loc.id, li));
+                listContainer.appendChild(li);
+            });
+        }
+
+        // --- UI & INTERACTION ---
+
+        function initRoutingUI() {
+            const footer = document.querySelector('.sidebar-footer');
+            footer.innerHTML = ''; // Clear existing button
+
+            // Create Container
+            const container = document.createElement('div');
+            container.style.display = 'flex';
+            container.style.flexDirection = 'column';
+            container.style.gap = '10px';
+
+            // Create Dropdowns
+            const createSelect = (id, label) => {
+                const wrapper = document.createElement('div');
+                wrapper.innerHTML = `<label style="font-size:0.8rem; color:#64748b; font-weight:600;">${label}</label>`;
+                const select = document.createElement('select');
+                select.id = id;
+                select.style.width = '100%';
+                select.style.padding = '6px';
+                select.style.borderRadius = '6px';
+                select.style.border = '1px solid #e2e8f0';
+                select.style.fontSize = '0.85rem';
+                select.style.marginBottom = '2px';
+                
+                // Default Option
+                const def = document.createElement('option');
+                def.text = "-- Select --";
+                def.value = "";
+                select.add(def);
+
+                // Populate
+                locations.forEach(loc => {
+                    const opt = document.createElement('option');
+                    opt.value = loc.id;
+                    opt.text = loc.name;
+                    select.add(opt);
+                });
+                wrapper.appendChild(select);
+                return wrapper;
+            };
+
+            container.appendChild(createSelect('startNode', 'From:'));
+            container.appendChild(createSelect('endNode', 'To:'));
+
+            // Create Button
+            const btn = document.createElement('button');
+            btn.className = 'btn-route'; // Re-use existing class
+            btn.style.padding = '8px';
+            btn.style.fontSize = '0.9rem';
+            btn.innerHTML = `
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>
+                    <polyline points="17 6 23 6 23 12"></polyline>
+                </svg>
+                Find Shortest Route
+            `;
+            btn.onclick = handleRoute;
+            container.appendChild(btn);
+
+            footer.appendChild(container);
+     // For show distance
+            const resultBox = document.createElement('div');
+            resultBox.id = 'routeInfo';
+            resultBox.style.marginTop = '15px';
+            resultBox.style.padding = '10px';
+            resultBox.style.borderRadius = '8px';
+            resultBox.style.background = '#f1f5f9';
+            resultBox.style.fontSize = '0.85rem';
+            resultBox.style.display = 'none';
+            footer.appendChild(resultBox);
+
+        }
+
+        function selectLocation(id, listElement) {
+            // UI Update
+            document.querySelectorAll('.building-item').forEach(item => item.classList.remove('active'));
+            if(listElement) listElement.classList.add('active');
+
+            // Map Update
+            const marker = markers[id];
+            if (marker) {
+                map.flyTo(marker.getLatLng(), 1.5, { duration: 1.5 });
+                marker.openPopup();
+            }
+        }
+
+        function handleRoute() {
+            const startId = parseInt(document.getElementById('startNode').value);
+            const endId = parseInt(document.getElementById('endNode').value);
+
+            if (!startId || !endId) {
+                alert("Please select both a source and a destination.");
+                return;
+            }
+
+            if (startId === endId) {
+                alert("Source and Destination cannot be the same.");
+                return;
+            }
+
+            // Remove old route layers
+            if (currentRouteLine) map.removeLayer(currentRouteLine);
+            if (currentGlowLine) map.removeLayer(currentGlowLine);
+
+         // Reset markers
+         locations.forEach(loc => {
+    let markerIcon = iconBlue;
+
+    if (loc.category === "Hostel") markerIcon = iconPurple;
+    else if (loc.category === "Mess") markerIcon = iconOrange;
+    else if (loc.category === "Auditorium") markerIcon = iconRed;
+    else if (loc.category === "Ground" || loc.category === "Sports") markerIcon = iconGreen;
+    else if (loc.category === "Administration") markerIcon = iconDarkBlue;
+
+    markers[loc.id].setIcon(markerIcon);
+});
+
+
+            // 1. Calculate Path
+            const pathIds = findShortestPath(startId, endId);
+            
+            if (pathIds.length < 2) {
+                alert("No route found between these locations.");
+                return;
+            }
+
+        
+            // 3. Highlight Start & End Markers
+            markers[startId].setIcon(iconStart);
+            markers[startId].setZIndexOffset(1000); // Bring to front
+            
+            markers[endId].setIcon(iconEnd);
+            markers[endId].setZIndexOffset(1000);
+
+            // 4. Draw Polyline
+                        
+            const latlngs = pathIds.map(id => getCoords(id));
+
+       // this show the distance btw source & destination
+            let totalDistance = 0;
+
+            for (let i = 0; i < latlngs.length - 1; i++) {
+                totalDistance += getDistance(latlngs[i], latlngs[i + 1]);
+            }
+
+            // Convert pixel distance to meters (adjust scale)
+            let meters = totalDistance * 0.30; 
+
+            // ---- IMPROVEMENT 1: Smart Distance Format ----
+            let distanceText = meters > 1000
+                ? (meters / 1000).toFixed(2) + " km"
+                : meters.toFixed(0) + " m";
+
+            // ---- IMPROVEMENT 2: Better Time Format ----
+            let walkingSpeed = 1; // meters per second
+            let seconds = meters / walkingSpeed;
+
+            let minutes = Math.floor(seconds / 60);
+            let remainingSeconds = Math.floor(seconds % 60);
+
+            // Update UI
+            const routeInfo = document.getElementById('routeInfo');
+            routeInfo.style.display = 'block';
+            routeInfo.innerHTML = `
+            <strong>Route Details</strong><br>
+            Distance: ${distanceText}<br>
+            Estimated Time: ${minutes} min ${remainingSeconds} sec walk`;
+
+
+
+           
+           // SIMPLE STRAIGHT ROUTE (TEST FIRST)
+
+                currentGlowLine = L.polyline(latlngs, {
+                    color: '#60a5fa',
+                    weight: 14,
+                    opacity: 0.3
+                }).addTo(map);
+
+                currentRouteLine = L.polyline(latlngs, {
+                    color: '#2563eb',
+                    weight: 6,
+                    opacity: 0.95,
+                    dashArray: '10, 10'
+                }).addTo(map);
+
+
+
+            // 5. Fit Map to Route
+            map.flyToBounds(currentRouteLine.getBounds(), { padding: [50, 50] });
+        }
+
+        // --- SEARCH ---
+       const searchInput = document.getElementById('buildingSearch');
+        const categoryFilter = document.getElementById('categoryFilter');
+
+        function applyFilters() {
+            const term = searchInput.value.toLowerCase();
+            const selectedCategory = categoryFilter.value;
+
+            document.querySelectorAll('.building-item').forEach((item, index) => {
+
+                const name = item.querySelector('h4').textContent.toLowerCase();
+                const buildingCategory = locations[index].category;
+
+                const matchesSearch = name.includes(term);
+                const matchesCategory = selectedCategory === "All" || buildingCategory === selectedCategory;
+
+                item.style.display = (matchesSearch && matchesCategory) ? 'flex' : 'none';
+            });
+        }
+
+        searchInput.addEventListener('keyup', applyFilters);
+        categoryFilter.addEventListener('change', applyFilters);
+
+        // --- RESET BUTTON ---
+        document.querySelector('.btn-locate').addEventListener('click', () => {
+            if (map && bounds) map.fitBounds(bounds);
+            // Clear route on reset if desired
+           if (currentRouteLine) map.removeLayer(currentRouteLine);
+           if (currentGlowLine) map.removeLayer(currentGlowLine);
+         
+          // reset all into according to category
+            locations.forEach(loc => {
+            let markerIcon = iconBlue;
+
+            if (loc.category === "Hostel") markerIcon = iconPurple;
+            else if (loc.category === "Mess") markerIcon = iconOrange;
+            else if (loc.category === "Auditorium") markerIcon = iconRed;
+            else if (loc.category === "Ground" || loc.category === "Sports") markerIcon = iconGreen;
+            else if (loc.category === "Administration") markerIcon = iconDarkBlue;
+
+            markers[loc.id].setIcon(markerIcon);
+        });
+
+            const routeInfo = document.getElementById('routeInfo');
+            if (routeInfo) routeInfo.style.display = 'none';
+
+
+        });
+
+        window.addEventListener('resize', () => { if (map) map.invalidateSize(); });
+
+    </script>
+</body>
+</html>
